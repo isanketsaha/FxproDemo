@@ -2,6 +2,7 @@ package com.finance.ohlc.service;
 
 import com.finance.ohlc.dao.interfaces.OhlcDao;
 import com.finance.ohlc.domain.Ohlc;
+import com.finance.ohlc.domain.OhlcStage;
 import com.finance.ohlc.enumeration.OhlcPeriod;
 import com.finance.ohlc.service.interfaces.OhlcService;
 import com.finance.ohlc.utils.AppUtils;
@@ -28,30 +29,17 @@ public class OhlcServiceImpl implements OhlcService {
     private OhlcDao ohlcDao;
 
     private Queue<Quote> incomingQuotesPerMinute = new ConcurrentLinkedQueue<>();
-    private Queue<Quote> incomingQuotesPerHour = new ConcurrentLinkedQueue<>();
-    private Queue<Quote> incomingQuotesPerDay = new ConcurrentLinkedQueue<>();
 
 
     @Override
     public void onQuote(Quote quote) {
-
         incomingQuotesPerMinute.offer(quote);
-        incomingQuotesPerHour.offer(quote);
-        incomingQuotesPerDay.offer(quote);
-
     }
 
-    public Quote fetchIncomingQuotesPerMinute() {
+    public Quote fetchIncomingQuotesForMinute() {
         return incomingQuotesPerMinute.poll();
     }
 
-    public Quote fetchIncomingQuotesPerHour() {
-        return incomingQuotesPerHour.poll();
-    }
-
-    public Quote fetchIncomingQuotesPerDay() {
-        return incomingQuotesPerDay.poll();
-    }
 
     @Override
     public Ohlc getCurrent(long instrumentId, OhlcPeriod period) {

@@ -6,23 +6,29 @@ import com.finance.ohlc.domain.OhlcStage;
 import com.finance.ohlc.enumeration.OhlcPeriod;
 import com.finance.ohlc.utils.AppUtils;
 import com.finance.ohlc.vm.Quote;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Slf4j
 @Service
+@AllArgsConstructor
+@NoArgsConstructor
 public class CalculationService {
 
-    @Autowired
     private OhlcDao ohlcDao;
-
     private OhlcStage minuteOhlcStage;
     private OhlcStage hourOhlcStage;
     private OhlcStage dayOhlcStage;
+
+    private Queue<OhlcStage> incomingQuotesPerHour = new ConcurrentLinkedQueue<>();
+    private Queue<OhlcStage> incomingQuotesPerDay = new ConcurrentLinkedQueue<>();
 
     @PostConstruct
     private void init() {
@@ -31,7 +37,7 @@ public class CalculationService {
         dayOhlcStage = new OhlcStage();
     }
 
-    public synchronized Ohlc process(Quote quote, OhlcStage ohlcStage) {
+    public synchronized OhlcStage process(Quote quote, OhlcStage ohlcStage) {
         ohlcStage.setClosePrice(quote.getPrice());
         if (ohlcStage.getOpenPrice() == 0) {
             ohlcStage.setOpenPrice(quote.getPrice());
@@ -45,30 +51,50 @@ public class CalculationService {
         }
         if (quote.isLastItem()) {
             quote.setLastItem(false);
-            Ohlc ohlc = AppUtils.constructOhlc(ohlcStage);
             reset(ohlcStage);
-            return ohlc;
+            return ohlcStage;
+        }
+
+        return null;
+    }
+
+    public synchronized OhlcStage process(OhlcStage quote, OhlcStage ohlcStage) {
+        ohlcStage.setClosePrice(quote.getClosePrice());
+        if (ohlcStage.getOpenPrice() == 0) {
+            ohlcStage.setOpenPrice(quote.getOpenPrice());
+            ohlcStage.setPeriodStartUtcTimestamp(quote.getPeriodStartUtcTimestamp());
+        }
+        if (ohlcStage.getHighestPrice() < quote.getHighestPrice()) {
+            ohlcStage.setHighestPrice(quote.getHighestPrice());
+        }
+        if (ohlcStage.getLowestPrice() > quote.getLowestPrice() || ohlcStage.getLowestPrice() == 0) {
+            ohlcStage.setLowestPrice(quote.getLowestPrice());
+        }
+        if (quote.isLastItem()) {
+            quote.setLastItem(false);
+            reset(ohlcStage);
+            return ohlcStage;
         }
 
         return null;
     }
 
 
-    public synchronized Ohlc processMinute(Quote quote) {
+    public synchronized OhlcStage processMinute(Quote quote) {
         log.info("Processing for Minute : {} ", quote);
         minuteOhlcStage.setOhlcPeriod(OhlcPeriod.M1);
         return process(quote, minuteOhlcStage);
 
     }
 
-    public synchronized Ohlc processHour(Quote quote) {
+    public synchronized OhlcStage processHour(OhlcStage quote) {
         log.info("Processing for Hour : {} ", quote);
         hourOhlcStage.setOhlcPeriod(OhlcPeriod.H1);
         return process(quote, hourOhlcStage);
 
     }
 
-    public synchronized Ohlc processDay(Quote quote) {
+    public synchronized OhlcStage processDay(OhlcStage quote) {
         log.info("Processing for Day : {} ", quote);
         dayOhlcStage.setOhlcPeriod(OhlcPeriod.D1);
         return process(quote, dayOhlcStage);
@@ -87,6 +113,7 @@ public class CalculationService {
         return dayOhlcStage;
     }
 
+
     private void reset(OhlcStage stageData) {
         if (stageData.getOhlcPeriod().equals(OhlcPeriod.M1)) {
             minuteOhlcStage = new OhlcStage();
@@ -99,9 +126,33 @@ public class CalculationService {
         }
     }
 
+    public OhlcStage fetchIncomingQuotesForHour() {
+        return incomingQuotesPerHour.poll();
+    }
+
+    public OhlcStage fetchIncomingQuotesForDay() {
+        return incomingQuotesPerDay.poll();
+    }
+
+
+    public void incomingQuotesPerHour(OhlcStage incomingQuotesPerHour) {
+        this.incomingQuotesPerHour.offer(incomingQuotesPerHour) ;
+    }
+
+    public void incomingQuotesPerDay(OhlcStage incomingQuotesPerDay) {
+        this.incomingQuotesPerDay.offer(incomingQuotesPerDay);
+    }
+
+
     @Transactional
-    public void logOhlc(Ohlc ohlc) {
-        log.info("OHLC Data : {} ", ohlc);
+    public void logOhlc(OhlcStage ohlcStage) {
+        log.info("OhlcStage Data : {} ", ohlcStage);
+        if (ohlcStage.getOhlcPeriod().equals(OhlcPeriod.M1)) {
+            incomingQuotesPerHour(ohlcStage);
+        } else if (ohlcStage.getOhlcPeriod().equals(OhlcPeriod.H1)) {
+            incomingQuotesPerDay(ohlcStage);
+        }
+        Ohlc ohlc = AppUtils.constructOhlc(ohlcStage);
         ohlcDao.store(ohlc);
     }
 

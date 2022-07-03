@@ -1,10 +1,9 @@
 package com.finance.ohlc.service;
 
 
-import com.finance.ohlc.config.HourSizeConfig;
-import com.finance.ohlc.domain.Ohlc;
+import com.finance.ohlc.config.DaySizeConfig;
+import com.finance.ohlc.domain.OhlcStage;
 import com.finance.ohlc.service.interfaces.OhlcService;
-import com.finance.ohlc.vm.Quote;
 import lombok.AllArgsConstructor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
@@ -14,7 +13,6 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.integration.async.AsyncItemProcessor;
 import org.springframework.batch.integration.async.AsyncItemWriter;
 import org.springframework.batch.item.ItemProcessor;
-import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.adapter.ItemProcessorAdapter;
 import org.springframework.batch.item.adapter.ItemReaderAdapter;
 import org.springframework.batch.item.support.SingleItemPeekableItemReader;
@@ -36,9 +34,7 @@ public class DayBatchService {
 
     private OhlcService ohlcService;
 
-    private ItemWriter<Ohlc> itemWriter;
-
-    private AsyncItemWriter<Ohlc> asyncItemWriter;
+    private AsyncItemWriter<OhlcStage> asyncItemWriter;
 
     private CalculationService calculationService;
 
@@ -52,7 +48,7 @@ public class DayBatchService {
     @Bean
     public Step jobPerDaySteps() {
         return this.stepBuilderFactory.get("jobPerDaySteps")
-                .<Quote, Future<Ohlc>>chunk(daySizeConfig())
+                .<OhlcStage, Future<OhlcStage>>chunk(daySizeConfig())
                 .reader(itemDayReader())
                 .processor(asyncDayItemProcessor())
                 .writer(asyncItemWriter).taskExecutor(new SimpleAsyncTaskExecutor())
@@ -61,31 +57,31 @@ public class DayBatchService {
     }
 
     @Bean
-    public ItemReaderAdapter<Quote> dayReader() {
-        ItemReaderAdapter<Quote> adapter = new ItemReaderAdapter<>();
-        adapter.setTargetObject(ohlcService);
-        adapter.setTargetMethod("fetchIncomingQuotesPerDay");
+    public ItemReaderAdapter<OhlcStage> dayReader() {
+        ItemReaderAdapter<OhlcStage> adapter = new ItemReaderAdapter<>();
+        adapter.setTargetObject(calculationService);
+        adapter.setTargetMethod("fetchIncomingQuotesForDay");
         return adapter;
     }
 
     @Bean
-    public SingleItemPeekableItemReader<Quote> itemDayReader() {
-        SingleItemPeekableItemReader<Quote> reader = new SingleItemPeekableItemReader<>();
+    public SingleItemPeekableItemReader<OhlcStage> itemDayReader() {
+        SingleItemPeekableItemReader<OhlcStage> reader = new SingleItemPeekableItemReader<>();
         reader.setDelegate(dayReader());
         return reader;
     }
 
     @Bean
-    public ItemProcessor<Quote, Ohlc> itemDayProcessor() {
-        ItemProcessorAdapter<Quote, Ohlc> adapter = new ItemProcessorAdapter<>();
+    public ItemProcessor<OhlcStage, OhlcStage> itemDayProcessor() {
+        ItemProcessorAdapter<OhlcStage, OhlcStage> adapter = new ItemProcessorAdapter<>();
         adapter.setTargetObject(calculationService);
         adapter.setTargetMethod("processDay");
         return adapter;
     }
 
     @Bean
-    public AsyncItemProcessor<Quote, Ohlc> asyncDayItemProcessor() {
-        AsyncItemProcessor<Quote, Ohlc> processor = new AsyncItemProcessor<>();
+    public AsyncItemProcessor<OhlcStage, OhlcStage> asyncDayItemProcessor() {
+        AsyncItemProcessor<OhlcStage, OhlcStage> processor = new AsyncItemProcessor<>();
         processor.setDelegate(itemDayProcessor());
         processor.setTaskExecutor(new SimpleAsyncTaskExecutor());
         return processor;
@@ -93,7 +89,7 @@ public class DayBatchService {
 
     @Bean
     public CompletionPolicy daySizeConfig() {
-        return new HourSizeConfig();
+        return new DaySizeConfig();
     }
 
 }

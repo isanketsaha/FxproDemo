@@ -13,6 +13,4 @@ public class OhlcServiceApplication {
         SpringApplication.run(OhlcServiceApplication.class, args);
 
     }
-
-
 }

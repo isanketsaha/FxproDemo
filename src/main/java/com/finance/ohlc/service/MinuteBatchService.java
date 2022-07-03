@@ -2,6 +2,7 @@ package com.finance.ohlc.service;
 
 import com.finance.ohlc.config.MinuteSizeConfig;
 import com.finance.ohlc.domain.Ohlc;
+import com.finance.ohlc.domain.OhlcStage;
 import com.finance.ohlc.service.interfaces.OhlcService;
 import com.finance.ohlc.vm.Quote;
 import lombok.AllArgsConstructor;
@@ -47,7 +48,7 @@ public class MinuteBatchService {
     @Bean
     public Step jobPerMinuteSteps() {
         return this.stepBuilderFactory.get("jobPerMinuteSteps")
-                .<Quote, Future<Ohlc>>chunk(minuteSizeConfig())
+                .<Quote, Future<OhlcStage>>chunk(minuteSizeConfig())
                 .reader(itemMinuteReader())
                 .processor(asyncItemProcessor())
                 .writer(asyncItemWriter()).taskExecutor(new SimpleAsyncTaskExecutor())
@@ -59,7 +60,7 @@ public class MinuteBatchService {
     public ItemReaderAdapter<Quote> minuteReader() {
         ItemReaderAdapter<Quote> adapter = new ItemReaderAdapter<>();
         adapter.setTargetObject(ohlcService);
-        adapter.setTargetMethod("fetchIncomingQuotesPerMinute");
+        adapter.setTargetMethod("fetchIncomingQuotesForMinute");
         return adapter;
     }
 
@@ -79,8 +80,8 @@ public class MinuteBatchService {
     }
 
     @Bean
-    public ItemProcessor<Quote, Ohlc> itemProcessor() {
-        ItemProcessorAdapter<Quote, Ohlc> adapter = new ItemProcessorAdapter<>();
+    public ItemProcessor<Quote, OhlcStage> itemProcessor() {
+        ItemProcessorAdapter<Quote, OhlcStage> adapter = new ItemProcessorAdapter<>();
         adapter.setTargetObject(calculationService);
         adapter.setTargetMethod("processDay");
         return adapter;
@@ -92,23 +93,23 @@ public class MinuteBatchService {
     }
 
     @Bean
-    public ItemWriterAdapter<Ohlc> itemWriter() {
-        ItemWriterAdapter<Ohlc> itemWriterAdapter = new ItemWriterAdapter<>();
+    public ItemWriterAdapter<OhlcStage> itemWriter() {
+        ItemWriterAdapter<OhlcStage> itemWriterAdapter = new ItemWriterAdapter<>();
         itemWriterAdapter.setTargetObject(calculationService);
         itemWriterAdapter.setTargetMethod("logOhlc");
         return itemWriterAdapter;
     }
 
     @Bean
-    public AsyncItemWriter<Ohlc> asyncItemWriter() {
-        AsyncItemWriter<Ohlc> writer = new AsyncItemWriter<>();
+    public AsyncItemWriter<OhlcStage> asyncItemWriter() {
+        AsyncItemWriter<OhlcStage> writer = new AsyncItemWriter<>();
         writer.setDelegate(itemWriter());
         return writer;
     }
 
     @Bean
-    public AsyncItemProcessor<Quote, Ohlc> asyncItemProcessor() {
-        AsyncItemProcessor<Quote, Ohlc> processor = new AsyncItemProcessor<>();
+    public AsyncItemProcessor<Quote, OhlcStage> asyncItemProcessor() {
+        AsyncItemProcessor<Quote, OhlcStage> processor = new AsyncItemProcessor<>();
         processor.setDelegate(itemProcessor());
         processor.setTaskExecutor(new SimpleAsyncTaskExecutor());
         return processor;

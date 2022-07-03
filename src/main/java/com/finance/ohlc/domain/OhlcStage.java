@@ -17,4 +17,5 @@ public class OhlcStage {
     private volatile double closePrice;
     private volatile long periodStartUtcTimestamp;
     private volatile double openPrice;
+    private volatile boolean lastItem;
 }
