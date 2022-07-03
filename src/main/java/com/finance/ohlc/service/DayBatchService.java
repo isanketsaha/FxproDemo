@@ -11,18 +11,20 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.integration.async.AsyncItemProcessor;
-import org.springframework.batch.integration.async.AsyncItemWriter;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.adapter.ItemProcessorAdapter;
 import org.springframework.batch.item.adapter.ItemReaderAdapter;
+import org.springframework.batch.item.adapter.ItemWriterAdapter;
 import org.springframework.batch.item.support.SingleItemPeekableItemReader;
 import org.springframework.batch.repeat.CompletionPolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
-import java.util.concurrent.Future;
-
+/**
+ * This Job will create OHLC data for each day period. The data will be injected from Hourly Job output Queue.
+ * Expectation is we will get input each Hour, create chunk for each Day and process accordingly.
+ */
 @Configuration
 @AllArgsConstructor
 public class DayBatchService {
@@ -34,7 +36,7 @@ public class DayBatchService {
 
     private OhlcService ohlcService;
 
-    private AsyncItemWriter<OhlcStage> asyncItemWriter;
+    private ItemWriterAdapter<OhlcStage> itemWriter;
 
     private CalculationService calculationService;
 
@@ -48,10 +50,10 @@ public class DayBatchService {
     @Bean
     public Step jobPerDaySteps() {
         return this.stepBuilderFactory.get("jobPerDaySteps")
-                .<OhlcStage, Future<OhlcStage>>chunk(daySizeConfig())
+                .<OhlcStage, OhlcStage>chunk(daySizeConfig())
                 .reader(itemDayReader())
-                .processor(asyncDayItemProcessor())
-                .writer(asyncItemWriter).taskExecutor(new SimpleAsyncTaskExecutor())
+                .processor(itemDayProcessor())
+                .writer(itemWriter)
                 .allowStartIfComplete(true)
                 .build();
     }
@@ -77,14 +79,6 @@ public class DayBatchService {
         adapter.setTargetObject(calculationService);
         adapter.setTargetMethod("processDay");
         return adapter;
-    }
-
-    @Bean
-    public AsyncItemProcessor<OhlcStage, OhlcStage> asyncDayItemProcessor() {
-        AsyncItemProcessor<OhlcStage, OhlcStage> processor = new AsyncItemProcessor<>();
-        processor.setDelegate(itemDayProcessor());
-        processor.setTaskExecutor(new SimpleAsyncTaskExecutor());
-        return processor;
     }
 
     @Bean

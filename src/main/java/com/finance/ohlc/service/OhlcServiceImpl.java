@@ -36,6 +36,10 @@ public class OhlcServiceImpl implements OhlcService {
         incomingQuotesPerMinute.offer(quote);
     }
 
+    /**
+     * Incoming quotes will be fetched from queue to Minute Job
+     * @return
+     */
     public Quote fetchIncomingQuotesForMinute() {
         return incomingQuotesPerMinute.poll();
     }

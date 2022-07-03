@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Just a mock class for interface.
+ */
 @Service
 public class OhlcDaoImpl implements OhlcDao {
 

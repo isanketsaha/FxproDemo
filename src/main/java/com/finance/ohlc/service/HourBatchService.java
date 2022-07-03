@@ -10,19 +10,21 @@ import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.integration.async.AsyncItemProcessor;
-import org.springframework.batch.integration.async.AsyncItemWriter;
 import org.springframework.batch.item.ItemProcessor;
 import org.springframework.batch.item.adapter.ItemProcessorAdapter;
 import org.springframework.batch.item.adapter.ItemReaderAdapter;
+import org.springframework.batch.item.adapter.ItemWriterAdapter;
 import org.springframework.batch.item.support.SingleItemPeekableItemReader;
 import org.springframework.batch.repeat.CompletionPolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
-import java.util.concurrent.Future;
 
+/**
+ * This Job will create OHLC data for each Hour period. The data will be injected from Minute Job output Queue.
+ * Expectation is we will get input each minute, create chunk for each hour and process accordingly.
+ */
 @Configuration
 @AllArgsConstructor
 public class HourBatchService {
@@ -36,7 +38,7 @@ public class HourBatchService {
 
     private CalculationService calculationService;
 
-    private AsyncItemWriter<OhlcStage> asyncItemWriter;
+    private ItemWriterAdapter<OhlcStage> itemWriter;
 
     @Bean
     public Job jobPerHour() {
@@ -48,10 +50,10 @@ public class HourBatchService {
     @Bean
     public Step jobPerHourSteps() {
         return this.stepBuilderFactory.get("jobPerHourSteps")
-                .<OhlcStage, Future<OhlcStage>>chunk(hourSizeConfig())
+                .<OhlcStage, OhlcStage>chunk(hourSizeConfig())
                 .reader(itemHourReader())
-                .processor(asyncHourItemProcessor())
-                .writer(asyncItemWriter).taskExecutor(new SimpleAsyncTaskExecutor())
+                .processor(itemHourProcessor())
+                .writer(itemWriter).taskExecutor(new SimpleAsyncTaskExecutor())
                 .allowStartIfComplete(true)
                 .build();
     }
@@ -79,13 +81,6 @@ public class HourBatchService {
         return adapter;
     }
 
-    @Bean
-    public AsyncItemProcessor<OhlcStage, OhlcStage> asyncHourItemProcessor() {
-        AsyncItemProcessor<OhlcStage, OhlcStage> processor = new AsyncItemProcessor<>();
-        processor.setDelegate(itemHourProcessor());
-        processor.setTaskExecutor(new SimpleAsyncTaskExecutor());
-        return processor;
-    }
 
     @Bean
     public CompletionPolicy hourSizeConfig() {

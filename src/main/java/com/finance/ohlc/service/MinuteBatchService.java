@@ -25,6 +25,12 @@ import org.springframework.core.task.SimpleAsyncTaskExecutor;
 
 import java.util.concurrent.Future;
 
+
+/**
+ * This Job will create OHLC data for each Minute period. The data will be injected from incoming quotes Queue.
+ * Expectation is we will get high throughput, create chunk for each minute and process accordingly.
+ * We are creating the reader , processor and writer as async for scaling our job.
+ */
 @Configuration
 @AllArgsConstructor
 public class MinuteBatchService {

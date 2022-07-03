@@ -6,6 +6,9 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
+/**
+ * This is an intermediate class of OHLC .
+ */
 @Data
 @ToString
 @NoArgsConstructor

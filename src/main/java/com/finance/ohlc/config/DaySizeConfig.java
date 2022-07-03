@@ -49,6 +49,11 @@ public class DaySizeConfig extends SimpleCompletionPolicy implements ItemReader<
 
         }
 
+        /**
+         * This method will compare the next and present OHLC stage object timestamp and see
+         * if they both occurred in the same Day, thus help create chunk.
+         * @return boolean - false if they are in same Day , otherwise true.
+         */
         @Override
         public boolean isComplete() {
             final OhlcStage nextReadItem;

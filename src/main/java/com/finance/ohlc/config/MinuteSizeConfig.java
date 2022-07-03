@@ -49,6 +49,11 @@ public class MinuteSizeConfig extends SimpleCompletionPolicy implements ItemRead
 
         }
 
+        /**
+         * This method will compare the next and present quote object timestamp and see
+         * if they both occurred in the same Minute, thus help create chunk.
+         * @return boolean - false if they are in same Minute , otherwise true.
+         */
         @Override
         public boolean isComplete() {
             final Quote nextReadItem;

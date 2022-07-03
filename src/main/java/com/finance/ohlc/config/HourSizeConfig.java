@@ -49,7 +49,11 @@ public class HourSizeConfig extends SimpleCompletionPolicy implements ItemReader
             }
 
         }
-
+        /**
+         * This method will compare the next and present OHLC stage object timestamp and see
+         * if they both occurred in the same Hour, thus help create chunk.
+         * @return boolean - false if they are in same Hour , otherwise true.
+         */
         @Override
         public boolean isComplete() {
             final OhlcStage nextReadItem;
